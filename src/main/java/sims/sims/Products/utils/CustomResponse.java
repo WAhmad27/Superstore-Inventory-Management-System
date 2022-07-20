@@ -1,2 +1,4 @@
-package sims.sims.Products.utils;public class CustomResponse {
+package sims.sims.Products.utils;
+
+public class CustomResponse {
 }

@@ -7,8 +7,8 @@ import org.springframework.stereotype.Service;
 import sims.sims.Products.ProductRepository.ProductRepository;
 import sims.sims.Products.entity.Product;
 import sims.sims.Products.entity.pojos.ProductPojo;
-import sims.sims.Products.utils.CustomResponse;
 
+import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -172,8 +172,7 @@ public class ProductServiceImplementation implements ProductService {
                     System.out.println("PRODUCT FOUND, TAKING PRICE");
                     totalPrice = totalPrice + productOptional.get().getPrice();
                     quantity = productOptional.get().getQuantity();
-                    if (quantity == 0)
-                    {
+                    if (quantity == 0) {
                         response = "Out of Stock";
                     } else {
                         quantity--;
@@ -194,49 +193,48 @@ public class ProductServiceImplementation implements ProductService {
         return response + " " + totalPrice;
     }
 
-    public ResponseEntity<Object> purchaseMultipleProjects(List<Product> products){
+    @Transactional
+    public ResponseEntity<Object> purchaseMultipleProducts(List<Product> products) {
         String response = "";
         int bill = 0;
-        HashMap<String,Object> responseMap = new HashMap<>();
+        HashMap<String, Object> responseMap = new HashMap<>();
         List<ProductPojo> productPojo = new ArrayList<>();
-        try{
+        try {
             for (Product p : products) {
                 ProductPojo pojo = new ProductPojo();
                 Product productInDb = productRepository.findProductWhereProductNameIs(p.getProductName());
                 Integer purchaseQty = p.getQuantity();
                 Integer quantityInDb = productInDb.getQuantity();
-                if (p.getQuantity() > 0 && p.getProductName() != null)
-                {
+                Integer updatedQuantity = quantityInDb - purchaseQty;
+                if (p.getQuantity() > 0 && p.getProductName() != null) {
                     if (quantityInDb != null) {
-                        if(quantityInDb <= purchaseQty){
-                            Integer setQuantity = productRepository.setQuantityWhereProductNameIs(quantityInDb - purchaseQty,p.getProductName());
+                        if (quantityInDb >= purchaseQty) {
+                            p.setQuantity(updatedQuantity);
                             pojo.setProductName(p.getProductName());
-                            pojo.setQuantity(setQuantity);
+                            pojo.setQuantity(updatedQuantity);
                             pojo.setMessage("Quantity purchase : " + purchaseQty);
                             pojo.setPrice(p.getPrice());
-                            pojo.setBilledAmount(calculateBill(productInDb.getPrice(),p.getQuantity()));
+                            pojo.setBilledAmount(calculateBill(productInDb.getPrice(), purchaseQty));
                             productPojo.add(pojo);
                             bill = bill + pojo.getBilledAmount();
+                            productRepository.updateProductsByProductName(p.getQuantity(), p.getProductName());
                         } else {
                             pojo.setProductName(p.getProductName());
                             pojo.setMessage("Purchase Qty exceeds stock Qty, Stock Availability :  " + quantityInDb);
                             productPojo.add(pojo);
-
                         }
-                    }else {
+                    } else {
                         pojo.setProductName(p.getProductName());
                         pojo.setMessage("Quantity is missing!");
                         productPojo.add(pojo);
                     }
                 } else {
-                    response= "Please Enter Data Correctly!";
+                    response = "Please Enter Data Correctly!";
                 }
             }
-
-            responseMap.put("Product List",productPojo);
+            responseMap.put("Product List", productPojo);
             responseMap.put("Total billed amount", bill);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             response = e.getLocalizedMessage();
         }
@@ -244,6 +242,8 @@ public class ProductServiceImplementation implements ProductService {
     }
 
     private Integer calculateBill(Integer price, Integer quantity) {
+
         return price * quantity;
     }
+
 }
